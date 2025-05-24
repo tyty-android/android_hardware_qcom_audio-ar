@@ -1816,7 +1816,6 @@ int AudioDevice::SetParameters(const char *kvpairs) {
 
         if (voice_)
             voice_->get_voice_call_state(&mode);
-        param_bt_a2dp.is_in_call = (mode != AUDIO_MODE_NORMAL);
 
         AHAL_INFO("BT A2DP Suspended = %s, command received", value);
         ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_SUSPENDED, (void *)&param_bt_a2dp,
@@ -2030,7 +2029,6 @@ int AudioDevice::SetParameters(const char *kvpairs) {
 
         if (voice_)
             voice_->get_voice_call_state(&mode);
-        param_bt_a2dp.is_in_call = (mode != AUDIO_MODE_NORMAL);
 
         AHAL_INFO("BT A2DP Capture Suspended = %s, command received", value);
         ret = pal_set_param(PAL_PARAM_ID_BT_A2DP_CAPTURE_SUSPENDED, (void*)&param_bt_a2dp,

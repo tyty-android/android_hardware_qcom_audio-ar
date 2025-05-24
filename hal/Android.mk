@@ -34,18 +34,22 @@ LOCAL_MODULE_OWNER := qti
 LOCAL_VENDOR_MODULE := true
 LOCAL_ARM_MODE := arm
 
+ifeq ($(SOONG_CONFIG_android_hardware_audio_run_64bit), true)
+LOCAL_MULTILIB := 64
+endif
+
+ifeq ($(strip $(TARGET_USE_CENTRAL_VINTF)),false)
+
 LOCAL_VINTF_FRAGMENTS := ../configs/common/manifest_non_qmaa.xml
 ifeq ($(filter $(TARGET_BOARD_PLATFORM), anorak anorak61), $(TARGET_BOARD_PLATFORM))
 $(warning "Update manifest fragement for anorak")
 LOCAL_VINTF_FRAGMENTS += ../configs/$(TARGET_BOARD_PLATFORM)/android.hardware.audio@7.1.xml
 endif
 
-ifeq ($(SOONG_CONFIG_android_hardware_audio_run_64bit), true)
-LOCAL_MULTILIB := 64
-endif
-
 ifeq ($(strip $(AUDIO_FEATURE_ENABLED_LSM_HIDL)),true)
 LOCAL_VINTF_FRAGMENTS += ../configs/common/manifest_non_qmaa_extn.xml
+endif
+
 endif
 
 LOCAL_CFLAGS += -Wno-macro-redefined
@@ -63,9 +67,9 @@ LOCAL_CFLAGS += -Wno-shorten-64-to-32
 LOCAL_CFLAGS += -Wno-tautological-compare
 LOCAL_CFLAGS += -Wno-unused-function
 LOCAL_CFLAGS += -Wno-unused-local-typedef
-ifeq ($(filter 12 S, $(PLATFORM_VERSION)),)
+# ifeq ($(filter 12 S, $(PLATFORM_VERSION)),)
 LOCAL_CFLAGS += -DUSEHIDL7_1
-endif
+# endif
 
 LOCAL_CPPFLAGS += -fexceptions
 

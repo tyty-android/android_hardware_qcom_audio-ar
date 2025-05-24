@@ -3007,7 +3007,7 @@ int StreamOutPrimary::Open() {
             halOutputFormat = (audio_format_t)(getAlsaSupportedFmt.at(halInputFormat));
             streamAttributes_.out_media_config.aud_fmt_id = getFormatId.at(halOutputFormat);
             streamAttributes_.out_media_config.bit_width = format_to_bitwidth_table[halOutputFormat];
-            AHAL_DBG("halInputFormat %d halOutputFormat %d palformat %d", halInputFormat,
+            AHAL_DBG("StreamOutPrimary::Open: %p: halInputFormat %d halOutputFormat %d palformat %d", this, halInputFormat,
                      halOutputFormat, streamAttributes_.out_media_config.aud_fmt_id);
             if (streamAttributes_.out_media_config.bit_width == 0)
                 streamAttributes_.out_media_config.bit_width = 16;
@@ -3065,11 +3065,11 @@ int StreamOutPrimary::Open() {
                 sizeof(mPalOutDevice->custom_config.custom_key));
     }
 
-    AHAL_DBG("channels %d samplerate %d format id %d, stream type %d  stream bitwidth %d",
+    AHAL_DBG("StreamOutPrimary::Open: %p: channels %d samplerate %d format id %d, stream type %d  stream bitwidth %d", this,
            streamAttributes_.out_media_config.ch_info.channels, streamAttributes_.out_media_config.sample_rate,
            streamAttributes_.out_media_config.aud_fmt_id, streamAttributes_.type,
            streamAttributes_.out_media_config.bit_width);
-    AHAL_DBG("msample_rate %d mchannels %d mNoOfOutDevices %zu", msample_rate, mchannels, mAndroidOutDevices.size());
+    AHAL_DBG("StreamOutPrimary::Open: msample_rate %d mchannels %d mNoOfOutDevices %zu", msample_rate, mchannels, mAndroidOutDevices.size());
 
     if (AudioExtn::audio_devices_cmp(mAndroidOutDevices,
                                      (audio_devices_t)AUDIO_DEVICE_OUT_BLUETOOTH_SCO) ||
@@ -3111,6 +3111,7 @@ int StreamOutPrimary::Open() {
         ret = -EINVAL;
         goto error_open;
     }
+    AHAL_DBG("StreamOutPrimary::Open: Pal Stream success");
 
     /* set cached volume if any, dont return failure back up */
     if (volume_) {
@@ -3901,11 +3902,6 @@ StreamOutPrimary::StreamOutPrimary(
                 config->channel_mask = AUDIO_CHANNEL_OUT_STEREO;
             if (config->format == AUDIO_FORMAT_DEFAULT)
                 config->format = AUDIO_FORMAT_PCM_16_BIT;
-            memcpy(&config_, config, sizeof(struct audio_config));
-            AHAL_INFO("sample rate = %d channel_mask = %#x fmt = %#x",
-                      config->sample_rate, config->channel_mask,
-                      config->format);
-
         }
     }
 
@@ -3924,6 +3920,11 @@ StreamOutPrimary::StreamOutPrimary(
             config_.format = AUDIO_FORMAT_PCM_16_BIT;
         }
     }
+
+    memcpy(&config_, config, sizeof(struct audio_config));
+    AHAL_INFO("sample rate = %d channel_mask = %#x fmt = %#x",
+              config->sample_rate, config->channel_mask,
+              config->format);
 
     usecase_ = GetOutputUseCase(flags_);
     if (address) {
@@ -3961,13 +3962,31 @@ StreamOutPrimary::StreamOutPrimary(
     /* TODO: how to update based on stream parameters and see if device is supported */
     for (int i = 0; i < mAndroidOutDevices.size(); i++) {
         mPalOutDevice[i].id = mPalOutDeviceIds[i];
-        if (AudioExtn::audio_devices_cmp(mAndroidOutDevices, audio_is_usb_out_device))
+        if (usecase_ == USECASE_AUDIO_PLAYBACK_OFFLOAD || usecase_ == USECASE_AUDIO_PLAYBACK_OFFLOAD2) {
+            if (AudioExtn::audio_devices_cmp(mAndroidOutDevices, audio_is_usb_out_device))
+                mPalOutDevice[i].config.sample_rate = config_.sample_rate;
+            else
+                mPalOutDevice[i].config.sample_rate = DEFAULT_OUTPUT_SAMPLING_RATE;
+            mPalOutDevice[i].config.bit_width = CODEC_BACKEND_DEFAULT_BIT_WIDTH;
+            mPalOutDevice[i].config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+        } else {
+            auto resolved_format = static_cast<uint32_t>(config_.format);
+            auto resolved_bit_width = CODEC_BACKEND_DEFAULT_BIT_WIDTH;
+            if (auto mapped_format = getAlsaSupportedFmt.find(resolved_format); mapped_format != getAlsaSupportedFmt.end()) {
+                resolved_format = mapped_format->second;
+                resolved_bit_width = format_to_bitwidth_table[resolved_format];
+            }
+            auto pal_format = PAL_AUDIO_FMT_PCM_S16_LE;
+            if (auto pal_entry = getFormatId.find(resolved_format); pal_entry != getFormatId.end()) {
+                pal_format = pal_entry->second;
+            }
+            mPalOutDevice[i].config.aud_fmt_id = pal_format;
+            mPalOutDevice[i].config.bit_width = resolved_bit_width;
             mPalOutDevice[i].config.sample_rate = config_.sample_rate;
-        else
-            mPalOutDevice[i].config.sample_rate = DEFAULT_OUTPUT_SAMPLING_RATE;
-        mPalOutDevice[i].config.bit_width = CODEC_BACKEND_DEFAULT_BIT_WIDTH;
-        mPalOutDevice[i].config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE; // TODO: need to convert this from output format
-        AHAL_INFO("device rate = %d width = %#x fmt = %#x",
+        }
+
+        AHAL_INFO("device id = %d device rate = %d width = %#x fmt = %#x",
+            mPalOutDevice[i].id,
             mPalOutDevice[i].config.sample_rate,
             mPalOutDevice[i].config.bit_width,
             mPalOutDevice[i].config.aud_fmt_id);

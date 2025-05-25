@@ -92,7 +92,10 @@ LOCAL_HEADER_LIBRARIES := \
     qti_audio_kernel_uapi \
     libagm_headers \
     libaudio_extn_headers \
-    libagmclient_headers
+    libagmclient_headers \
+    libagmserver_headers \
+    libpalserver_headers
+
 ifeq ($(QCPATH),)
 LOCAL_HEADER_LIBRARIES += libarpal_headers
 endif
